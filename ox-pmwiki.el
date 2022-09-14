@@ -25,10 +25,31 @@
 
 (require 'ox-md)
 
+(defgroup org-export-pmwiki nil
+  "Options specific to PMWiki export back-end."
+  :tag "Org PMWiki"
+  :group 'org-export
+  :version "28.1"
+  :package-version '(ox-pmwiki . "0.0.1"))
+
+(defcustom org-pmwiki-toplevel-hlevel 2
+  "Heading level to use for level 1 Org headings in pmwiki export.
+
+If this is 1, headline levels will be preserved on export. If this is 2, top
+level Org headings will be exported to level 2 headings, level 2 Org headings
+will be exported to level 3 headings, and so on.
+
+The default value for this variable is 2 because PMWiki styles
+document titles with H1 by default."
+  :group 'org-export-pmwiki
+  :type 'integer)
+
 (org-export-define-derived-backend 'pmwiki 'md
   :menu-entry 
   '(?w "To pmwiki markup"
-        ((?w "To file" (lambda (a s v b) 
+        ((?W "To temporary buffer"
+             (lambda (a s v b) (org-pmwiki-export-as-pmwiki a s v)))
+         (?w "To file" (lambda (a s v b) 
                          (org-pmwiki-export-to-pmwiki a s v)))))
   :translate-alist '((bold . org-pmwiki-bold)
                      (italic . org-pmwiki-italic)
@@ -43,7 +64,11 @@
                      (item . org-pmwiki-item)
                      (template . org-pmwiki-template)
                      (example-block . org-pmwiki-example-block)
-                     (src-block . org-pmwiki-example-block)))
+                     (src-block . org-pmwiki-example-block)
+                     (headline . org-pmwiki-headline)
+                     (inner-template . org-pmwiki-inner-template)
+                     (link . org-pmwiki-link))
+  :options-alist '((:pmwiki-toplevel-hlevel nil nil org-pmwiki-toplevel-hlevel)))
 
 (defun org-pmwiki-bold (_bold contents _info)
   "Transcode BOLD object into pmwiki format. 
@@ -85,9 +110,11 @@ channel."
 (defun org-pmwiki-plain-text (text info)
   "Transcode a TEXT string into pmwiki format. 
 TEXT is the string to transcode. INFO is a plist holding contextual information."
-  (if (plist-get info :with-smart-quotes)
-      (org-export-activate-smart-quotes text :utf-8 info)
-    text))
+  (when (plist-get info :with-smart-quotes)
+    (setq text (org-export-activate-smart-quotes text :html info)))
+  (when (plist-get info :with-special-strings)
+    (setq text (org-html-convert-special-strings text)))
+  text)
 
 (defun org-pmwiki-latex-fragment (latex-fragment _contents info)
   "Transcode a LATEX-FRAGMENT into pmwiki format.
@@ -143,7 +170,67 @@ plist with the export options."
             (format "(:title %s :)\n" (org-element-interpret-data (plist-get options :title))))
           (when (plist-get options :with-latex)
             "(:mathjax:)\n")
+          (when (plist-get options :with-toc)
+            "(:htoc:)\n")
           transcoded-string))
+
+(defun org-pmwiki-inner-template (contents _info)
+  "Return the body of the document, to prevent Markdown's default TOC
+generation"
+  contents)
+
+(defun org-pmwiki-headline (headline contents info)
+  "Transcode a HEADLINE element into pmwiki format.
+CONTENTS is the headline contents. INFO is a plist used as a communications
+channel."
+  (unless (org-element-property :footnote-section-p headline)
+    (let* ((level (+ (org-export-get-relative-level headline info)
+                     (1- (plist-get info :pmwiki-toplevel-hlevel))))
+           (title (org-export-data (org-element-property :title headline) info))
+           (todo (and (plist-get info :with-todo-keywords)
+                      (let ((todo (org-element-property :todo-keyword headline)))
+                        (and todo (concat (org-export-data todo info) " ")))))
+           (tags (and (plist-get info :with-tags)
+                      (let ((tag-list (org-export-get-tags headline info)))
+                        (and tag-list (concat "  " (org-make-tag-string tag-list))))))
+           (priority (and (plist-get info :with-priority)
+                          (let ((char (org-element-property :priority headline)))
+                            (and char (format "[#%c] " char)))))
+           (heading (concat todo priority title)))
+      (cond
+       ((or (org-export-low-level-p headline info)
+            (> level 6))
+        (let ((bullet (if (not (org-export-numbered-headline-p headline info)) "*" "#")))
+          (concat bullet " " "\'\'\'" heading tags "\'\'\'" "\n"
+                  (and contents (replace-regexp-in-string "^" "  " contents)))))
+       (t
+        (let ((level-mark (make-string level ?!)))
+          (concat "\n" level-mark " " heading tags "\n\n" contents)))))))
+
+(defun org-pmwiki-link (link desc info)
+  "Transcode a LINK element into pmwiki format.
+DESC is the description part of the link, or the empty string. INFO is a plist
+used as a communications channel.
+
+Note that, for now, only internet (i.e. http(s), ftp, mailto) and file links are
+supported. ox-pmwiki assumes that if the user links to an org-file, they will
+also be uploading that file as a wiki page with the page name as the file name,
+and thus translates file links into wikilinks to the file name."
+  (let ((type (org-element-property :type link))
+        (raw-path (org-element-property :path link)))
+    (cond
+     ((member type '("http" "https" "ftp" "mailto"))
+      (let ((encoded-path (url-encode-url (concat type ":" raw-path))))
+        (if desc
+            (format "[[%s | %s]]" encoded-path desc)
+          encoded-path)))
+     ((string= type "file")
+      (let ((wiki-page-name (file-name-sans-extension
+                             (file-name-nondirectory path))))
+        (if desc
+            (format "[[%s | %s]]" wiki-page-name desc)
+          (format "[[%s]]" wiki-page-name)))))))
+     
   
 
 ;;;###autoload
@@ -151,6 +238,12 @@ plist with the export options."
   (interactive)
   (let ((outfile (org-export-output-file-name ".pmwiki" subtreep)))
     (org-export-to-file 'pmwiki outfile async subtreep visible-only)))
+
+;;;###autoload
+(defun org-pmwiki-export-as-pmwiki (&optional async subtreep visible-only)
+  (interactive)
+  (org-export-to-buffer 'pmwiki "*Org pmwiki Export*"
+    async subtreep visible-only nil nil (lambda () (text-mode))))
 
 
 (provide 'ox-pmwiki)
