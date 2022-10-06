@@ -46,14 +46,14 @@ document titles with H1 by default."
 
 (org-export-define-derived-backend 'pmwiki 'md
   :menu-entry 
-  '(?w "To pmwiki markup"
+  '(?w "Export to pmwiki markup"
         ((?W "To temporary buffer"
              (lambda (a s v b) (org-pmwiki-export-as-pmwiki a s v)))
          (?w "To file" (lambda (a s v b) 
                          (org-pmwiki-export-to-pmwiki a s v)))))
   :translate-alist '((bold . org-pmwiki-bold)
                      (italic . org-pmwiki-italic)
-                     (underline. org-pmwiki-underline)
+                     (underline . org-pmwiki-underline)
                      (strike-through . org-pmwiki-strike-through)
                      (code . org-pmwiki-verbatim)
                      (verbatim . org-pmwiki-verbatim)
@@ -67,7 +67,8 @@ document titles with H1 by default."
                      (src-block . org-pmwiki-example-block)
                      (headline . org-pmwiki-headline)
                      (inner-template . org-pmwiki-inner-template)
-                     (link . org-pmwiki-link))
+                     (link . org-pmwiki-link)
+                     (quote-block . org-pmwiki-quote-block))
   :options-alist '((:pmwiki-toplevel-hlevel nil nil org-pmwiki-toplevel-hlevel)))
 
 (defun org-pmwiki-bold (_bold contents _info)
@@ -230,6 +231,14 @@ and thus translates file links into wikilinks to the file name."
         (if desc
             (format "[[%s | %s]]" wiki-page-name desc)
           (format "[[%s]]" wiki-page-name)))))))
+
+(defun org-pmwiki-quote-block (_quote-block contents _info)
+  "Transcode a QUOTE-BLOCK element into pmwiki format.
+CONTENTS is the contents of the quote block. INFO is a plist used as a
+communications channel."
+  (replace-regexp-in-string 
+   "^" "->"
+   (replace-regexp-in-string "\n\\'" "" contents)))
      
   
 
