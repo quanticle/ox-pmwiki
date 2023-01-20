@@ -1,0 +1,13 @@
+* README
+
+** Installation
+
+Eventually this will be a MELPA package, but for now, just clone the repository somewhere on your machine and do =M-x load-file <path to ox-pmwiki>.el=
+
+** Usage
+
+=ox-pmwiki= plugs in to the normal org export framework. Assuming you've loaded it, it should show up in the org-export dispatcher (accessed via =C-c C-e=) with the access key =w=.
+
+** Limitations
+
+The major limitation thus far is a lack of table support. Everything else, such as text formatting, bulleted and numbered lists, headings, etc, mostly works.
