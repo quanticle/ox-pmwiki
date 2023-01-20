@@ -68,7 +68,8 @@ document titles with H1 by default."
                      (headline . org-pmwiki-headline)
                      (inner-template . org-pmwiki-inner-template)
                      (link . org-pmwiki-link)
-                     (quote-block . org-pmwiki-quote-block))
+                     (quote-block . org-pmwiki-quote-block)
+                     (superscript . org-pmwiki-superscript))
   :options-alist '((:pmwiki-toplevel-hlevel nil nil org-pmwiki-toplevel-hlevel)))
 
 (defun org-pmwiki-bold (_bold contents _info)
@@ -239,6 +240,12 @@ communications channel."
   (replace-regexp-in-string 
    "^" "->"
    (replace-regexp-in-string "\n\\'" "" contents)))
+
+(defun org-pmwiki-superscript (_superscript contents _info)
+  "Transcode superscript text into pmwiki format.
+CONTENTS is the contents of the superscript element. INFO is a plist used as a
+communications channel."
+  (format "'^%s^'" contents))
      
   
 
