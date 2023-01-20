@@ -101,7 +101,7 @@ a communication channel."
 CONTENTS is the text within the markup. INFO is a plist used as a communication
 channel."
   (let ((verbatim-text (org-element-property :value verbatim)))
-    (format "@@%s@@" verbatim-text)))
+    (format "@@[=%s=]@@" verbatim-text)))
 
 (defun org-pmwiki-paragraph (_paragraph contents _info)
   "Transcode PARAGRAPH object into pmwiki format.
