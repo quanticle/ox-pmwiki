@@ -141,8 +141,12 @@ channel."
 CONTENTS is the item contents. INFO is a plist used as a communications
 channel."
   (let* ((type (org-element-property :type (org-export-get-parent item)))
-         (bullet (if (eq type 'ordered) "#" "*")))
+         (bullet (if (eq type 'ordered) "#" "*"))
+         (counter (org-element-property :counter item)))
     (concat bullet " "
+            (if counter
+                (format "%%item value=%s%%" counter)
+              "")
             (pcase (org-element-property :checkbox item)
               (`on "@@[X]@@ ")
               (`off "@@[ ]@@ ")
