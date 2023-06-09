@@ -45,11 +45,11 @@ document titles with H1 by default."
   :type 'integer)
 
 (org-export-define-derived-backend 'pmwiki 'md
-  :menu-entry 
+  :menu-entry
   '(?w "Export to pmwiki markup"
         ((?W "To temporary buffer"
              (lambda (a s v b) (org-pmwiki-export-as-pmwiki a s v)))
-         (?w "To file" (lambda (a s v b) 
+         (?w "To file" (lambda (a s v b)
                          (org-pmwiki-export-to-pmwiki a s v)))))
   :translate-alist '((bold . org-pmwiki-bold)
                      (italic . org-pmwiki-italic)
@@ -73,7 +73,7 @@ document titles with H1 by default."
   :options-alist '((:pmwiki-toplevel-hlevel nil nil org-pmwiki-toplevel-hlevel)))
 
 (defun org-pmwiki-bold (_bold contents _info)
-  "Transcode BOLD object into pmwiki format. 
+  "Transcode BOLD object into pmwiki format.
 CONTENTS is the text within the bold markup. INFO is a plist used as a
 communication channel."
   (format "\'\'\'%s\'\'\'" contents))
@@ -110,7 +110,7 @@ channel."
   contents)
 
 (defun org-pmwiki-plain-text (text info)
-  "Transcode a TEXT string into pmwiki format. 
+  "Transcode a TEXT string into pmwiki format.
 TEXT is the string to transcode. INFO is a plist holding contextual information."
   (when (plist-get info :with-smart-quotes)
     (setq text (org-export-activate-smart-quotes text :html info)))
@@ -154,10 +154,11 @@ channel."
             (let ((tag (org-element-property :tag item)))
               (and tag
                    (format "\'\'\'%s\'\'\'" (org-export-data tag info))))
-            (org-trim 
-             (and contents 
-                  (org-trim 
-                   (replace-regexp-in-string "^" "  " contents)))))))
+            (org-trim
+             (or (and contents
+                      (org-trim
+                       (replace-regexp-in-string "^" "  " contents)))
+                 "")))))
 
 (defun org-pmwiki-example-block (example-block _contents info)
   "Transcode an EXAMPLE-BLOCK into pmwiki format.
@@ -241,7 +242,7 @@ and thus translates file links into wikilinks to the file name."
   "Transcode a QUOTE-BLOCK element into pmwiki format.
 CONTENTS is the contents of the quote block. INFO is a plist used as a
 communications channel."
-  (replace-regexp-in-string 
+  (replace-regexp-in-string
    "^" "->"
    (replace-regexp-in-string "\n\\'" "" contents)))
 
@@ -250,8 +251,8 @@ communications channel."
 CONTENTS is the contents of the superscript element. INFO is a plist used as a
 communications channel."
   (format "'^%s^'" contents))
-     
-  
+
+
 
 ;;;###autoload
 (defun org-pmwiki-export-to-pmwiki (&optional async subtreep visible-only)
