@@ -44,6 +44,25 @@ document titles with H1 by default."
   :group 'org-export-pmwiki
   :type 'integer)
 
+(defcustom org-pmwiki-inline-image-rules
+  `(("file" . ,(regexp-opt '(".jpg" ".png" ".gif")))
+    ("http" . ,(regexp-opt '(".jpg" ".png" ".gif")))
+    ("https" . ,(regexp-opt '(".jpg" ".png" ".gif"))))
+  "Rules characterizing image files that can be inlined into PMWiki markup.
+A rule consists of an association whose key is the type of link to consider and
+value is a regexp that will be matched against the link's path. Note that PMWiki
+will automatically inline images if a HTTP(S) link points to an image file, of 
+type `.jpg', `.png', or `.gif', so this setting only determines if file links
+get inlined. However, it is still used by e.g. ORG-PMWIKI-INLINE-IMAGE-P to
+determine if a given link is an image link.
+
+Also note that this just tells ox-pmwiki which files to inline as attachments in
+the markup. It's still up to you to actually upload those files to your wiki to
+ensure that links aren't broken."
+  :group 'org-export-pmwiki
+  :type '(alist :key-type (string :tag "Type")
+                :value-type (regexp :tag "Path")))
+
 (org-export-define-derived-backend 'pmwiki 'md
   :menu-entry
   '(?w "Export to pmwiki markup"
@@ -70,7 +89,8 @@ document titles with H1 by default."
                      (link . org-pmwiki-link)
                      (quote-block . org-pmwiki-quote-block)
                      (superscript . org-pmwiki-superscript))
-  :options-alist '((:pmwiki-toplevel-hlevel nil nil org-pmwiki-toplevel-hlevel)))
+  :options-alist '((:pmwiki-toplevel-hlevel nil nil org-pmwiki-toplevel-hlevel)
+                   (:pmwiki-inline-image-rules nil nil org-pmwiki-inline-image-rules)))
 
 (defun org-pmwiki-bold (_bold contents _info)
   "Transcode BOLD object into pmwiki format.
@@ -103,11 +123,62 @@ channel."
   (let ((verbatim-text (org-element-property :value verbatim)))
     (format "@@[=%s=]@@" verbatim-text)))
 
-(defun org-pmwiki-paragraph (_paragraph contents _info)
+(defun org-pmwiki-inline-image-p (link info)
+  "Non-nil when LINK is meant to appear as an image.
+INFO is a plist used as a communication channel. LINK is an inline image when
+it has no description and targets an image file, (see 
+`org-pmwiki-inline-image-rules' for more information), or if its description is
+a single link targeting an image file.."
+  (if (not (org-element-contents link))
+      (org-export-inline-image-p link (plist-get info :pmwiki-inline-image-rules))
+    (not
+     (let ((link-count 0))
+       (org-element-map (org-element-contents link)
+           (cons 'plain-text org-element-all-objects)
+         (lambda (obj)
+           (pcase (org-element-type obj)
+             (`plain-text (org-string-nw-p obj))
+             (`link (if (= link-count 1) t
+                      (cl-incf link-count)
+                      (not (org-export-inline-image-p obj (plist-get info :pmwiki-inline-image-rules)))))
+             (_ t)))
+         info t)))))
+
+(defun org-pmwiki-standalone-image-p (paragraph info)
+  "Determine if a paragraph is a standalone image. A paragraph is a standalone
+image if its sole contents is a link to an image file."
+  (catch 'exit
+    (let ((link-count 0))
+      (org-element-map (org-element-contents paragraph)
+          (cons 'plain-text org-element-all-objects)
+        (lambda (obj)
+          (when (pcase (org-element-type obj)
+                  (`plain-text (org-string-nw-p obj))
+                  (`link (or (> (cl-incf link-count) 1)
+                             (not (org-pmwiki-inline-image-p obj info))))
+                  (_ t))
+            (throw 'exit nil)))
+        info nil 'link)
+      (= link-count 1))))
+
+(defun org-pmwiki--wrap-image (contents &optional caption)
+  (format "%%center%%%s%s"
+          (org-trim contents)
+          (if caption 
+              (format " | %s" caption) 
+            "")))
+
+(defun org-pmwiki-paragraph (paragraph contents info)
   "Transcode PARAGRAPH object into pmwiki format.
 CONTENTS is the text of the paragraph. INFO is a plist used as a communication
 channel."
-  contents)
+  (cond
+   ((org-pmwiki-standalone-image-p paragraph info)
+    (let ((raw-caption (org-export-data (org-export-get-caption paragraph) info)))
+      (if (and raw-caption (org-string-nw-p raw-caption)) 
+          (org-pmwiki--wrap-image contents raw-caption)
+        (org-pmwiki--wrap-image contents))))
+   (t contents)))
 
 (defun org-pmwiki-plain-text (text info)
   "Transcode a TEXT string into pmwiki format.
@@ -222,7 +293,9 @@ used as a communications channel.
 Note that, for now, only internet (i.e. http(s), ftp, mailto) and file links are
 supported. ox-pmwiki assumes that if the user links to an org-file, they will
 also be uploading that file as a wiki page with the page name as the file name,
-and thus translates file links into wikilinks to the file name."
+and thus translates file links into wikilinks to the file name. If the file link
+points to an image (of type `.png`, `.jpg`, or `.gif`), the filename is
+converted into an attachment of the same name."
   (let ((type (org-element-property :type link))
         (raw-path (org-element-property :path link)))
     (cond
@@ -232,11 +305,18 @@ and thus translates file links into wikilinks to the file name."
             (format "[[%s | %s]]" encoded-path desc)
           encoded-path)))
      ((string= type "file")
-      (let ((wiki-page-name (file-name-sans-extension
-                             (file-name-nondirectory path))))
-        (if desc
-            (format "[[%s | %s]]" wiki-page-name desc)
-          (format "[[%s]]" wiki-page-name)))))))
+      (cond
+       ((string= (file-name-extension raw-path) "org")
+        (let ((wiki-page-name (file-name-sans-extension
+                               (file-name-nondirectory raw-path))))
+          (if desc
+              (format "[[%s | %s]]" wiki-page-name desc)
+            (format "[[%s]]" wiki-page-name))))
+       ((member (file-name-extension raw-path) '("jpg" "png" "gif"))
+        (let ((attachment-name (file-name-nondirectory raw-path)))
+          (if desc
+              (format "[[Attach:%s | %s]]" attachment-name desc)
+            (format "Attach:%s" attachment-name)))))))))
 
 (defun org-pmwiki-quote-block (_quote-block contents _info)
   "Transcode a QUOTE-BLOCK element into pmwiki format.
