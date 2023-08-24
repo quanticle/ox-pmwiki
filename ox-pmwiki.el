@@ -88,7 +88,8 @@ ensure that links aren't broken."
                      (inner-template . org-pmwiki-inner-template)
                      (link . org-pmwiki-link)
                      (quote-block . org-pmwiki-quote-block)
-                     (superscript . org-pmwiki-superscript))
+                     (superscript . org-pmwiki-superscript)
+                     (line-break . org-pmwiki-line-break))
   :options-alist '((:pmwiki-toplevel-hlevel nil nil org-pmwiki-toplevel-hlevel)
                    (:pmwiki-inline-image-rules nil nil org-pmwiki-inline-image-rules)))
 
@@ -162,7 +163,7 @@ image if its sole contents is a link to an image file."
       (= link-count 1))))
 
 (defun org-pmwiki--wrap-image (contents &optional caption)
-  (format "%%center%%%s%s"
+  (format "%%cframe%%%s%s"
           (org-trim contents)
           (if caption 
               (format " | %s" caption) 
@@ -331,6 +332,11 @@ communications channel."
 CONTENTS is the contents of the superscript element. INFO is a plist used as a
 communications channel."
   (format "'^%s^'" contents))
+
+(defun org-pmwiki-line-break (_line-break _contents info)
+  "Transcode a LINE-BREAK from org to pmwiki format.
+CONTENTS is nil. INFO is a plist holding contextual information."
+  "\\\\\n")
 
 
 
