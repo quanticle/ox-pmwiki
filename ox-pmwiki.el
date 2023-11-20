@@ -179,7 +179,7 @@ channel."
       (if (and raw-caption (org-string-nw-p raw-caption)) 
           (org-pmwiki--wrap-image contents raw-caption)
         (org-pmwiki--wrap-image contents))))
-   (t contents)))
+   (t (replace-regexp-in-string "\n" " " contents))))
 
 (defun org-pmwiki-plain-text (text info)
   "Transcode a TEXT string into pmwiki format.
