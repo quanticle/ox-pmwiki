@@ -250,7 +250,10 @@ plist with the export options."
           (when (plist-get options :with-latex)
             "(:mathjax:)\n")
           (when (plist-get options :with-toc)
-            "(:htoc:)\n")
+            (let* ((toplevel-hlevel (plist-get options :pmwiki-toplevel-hlevel))
+                  (toc-max (plist-get options :with-toc))
+                  (toc-level (min 6 (+ toplevel-hlevel (1- toc-max)))))
+              (format "(:htoc end=%d:)\n" toc-level)))
           transcoded-string))
 
 (defun org-pmwiki-inner-template (contents _info)
