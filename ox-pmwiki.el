@@ -179,7 +179,7 @@ channel."
       (if (and raw-caption (org-string-nw-p raw-caption)) 
           (org-pmwiki--wrap-image contents raw-caption)
         (org-pmwiki--wrap-image contents))))
-   (t (replace-regexp-in-string "\n" " " contents))))
+   (t contents)))
 
 (defun org-pmwiki-plain-text (text info)
   "Transcode a TEXT string into pmwiki format.
@@ -299,14 +299,17 @@ supported. ox-pmwiki assumes that if the user links to an org-file, they will
 also be uploading that file as a wiki page with the page name as the file name,
 and thus translates file links into wikilinks to the file name. If the file link
 points to an image (of type `.png`, `.jpg`, or `.gif`), the filename is
-converted into an attachment of the same name."
+converted into an attachment of the same name. In addition, line breaks in link
+descriptions are removed, because PMWiki does not support links that span
+multiple lines."
   (let ((type (org-element-property :type link))
-        (raw-path (org-element-property :path link)))
+        (raw-path (org-element-property :path link))
+        (fixed-desc (replace-regexp-in-string "\n" " " desc)))
     (cond
      ((member type '("http" "https" "ftp" "mailto"))
       (let ((encoded-path (url-encode-url (concat type ":" raw-path))))
         (if desc
-            (format "[[%s | %s]]" encoded-path desc)
+            (format "[[%s | %s]]" encoded-path fixed-desc)
           encoded-path)))
      ((string= type "file")
       (cond
