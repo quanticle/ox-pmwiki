@@ -51,7 +51,7 @@ document titles with H1 by default."
   "Rules characterizing image files that can be inlined into PMWiki markup.
 A rule consists of an association whose key is the type of link to consider and
 value is a regexp that will be matched against the link's path. Note that PMWiki
-will automatically inline images if a HTTP(S) link points to an image file, of 
+will automatically inline images if a HTTP(S) link points to an image file, of
 type `.jpg', `.png', or `.gif', so this setting only determines if file links
 get inlined. However, it is still used by e.g. ORG-PMWIKI-INLINE-IMAGE-P to
 determine if a given link is an image link.
@@ -127,7 +127,7 @@ channel."
 (defun org-pmwiki-inline-image-p (link info)
   "Non-nil when LINK is meant to appear as an image.
 INFO is a plist used as a communication channel. LINK is an inline image when
-it has no description and targets an image file, (see 
+it has no description and targets an image file, (see
 `org-pmwiki-inline-image-rules' for more information), or if its description is
 a single link targeting an image file.."
   (if (not (org-element-contents link))
@@ -165,8 +165,8 @@ image if its sole contents is a link to an image file."
 (defun org-pmwiki--wrap-image (contents &optional caption)
   (format "%%cframe%%%s%s"
           (org-trim contents)
-          (if caption 
-              (format " | %s" caption) 
+          (if caption
+              (format " | %s" caption)
             "")))
 
 (defun org-pmwiki-paragraph (paragraph contents info)
@@ -176,7 +176,7 @@ channel."
   (cond
    ((org-pmwiki-standalone-image-p paragraph info)
     (let ((raw-caption (org-export-data (org-export-get-caption paragraph) info)))
-      (if (and raw-caption (org-string-nw-p raw-caption)) 
+      (if (and raw-caption (org-string-nw-p raw-caption))
           (org-pmwiki--wrap-image contents raw-caption)
         (org-pmwiki--wrap-image contents))))
    (t contents)))
