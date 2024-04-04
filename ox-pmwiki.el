@@ -89,7 +89,10 @@ ensure that links aren't broken."
                      (link . org-pmwiki-link)
                      (quote-block . org-pmwiki-quote-block)
                      (superscript . org-pmwiki-superscript)
-                     (line-break . org-pmwiki-line-break))
+                     (line-break . org-pmwiki-line-break)
+                     (table . org-pmwiki-table)
+                     (table-cell . org-pmwiki-table-cell)
+                     (table-row . org-pmwiki-table-row))
   :options-alist '((:pmwiki-toplevel-hlevel nil nil org-pmwiki-toplevel-hlevel)
                    (:pmwiki-inline-image-rules nil nil org-pmwiki-inline-image-rules)))
 
@@ -339,12 +342,46 @@ CONTENTS is the contents of the superscript element. INFO is a plist used as a
 communications channel."
   (format "'^%s^'" contents))
 
-(defun org-pmwiki-line-break (_line-break _contents info)
+(defun org-pmwiki-line-break (_line-break _contents _info)
   "Transcode a LINE-BREAK from org to pmwiki format.
 CONTENTS is nil. INFO is a plist holding contextual information."
   "\\\\\n")
 
+(defun org-pmwiki-table (table contents info)
+  "Transcode a TABLE element from org to pmwiki format. CONTENTS is the contents
+of the table. INFO is a plist serving as a communications channel."
+  (let ((table-border "border=1")
+        (table-cell-padding "cellpadding=5px"))
+    (format "(:table %s %s :)\n%s\n(:tableend:)"
+            table-border
+            table-cell-padding
+            contents)))
 
+(defun org-pmwiki-table-row (_table-row contents _info)
+  "Transcode a TABLE-ROW element from org to pmwiki format. CONTENTS is the
+contents of the row."
+  contents)
+
+(defun org-pmwiki-table-cell (table-cell contents info)
+  "Transcode a TABLE-CELL element from org to pmwiki format. CONTENTS is the
+contents of the cell. INFO is a PLIST serving as a communications channel."
+  (let ((table-row (org-element-parent table-cell))
+        (table (org-element-lineage table-cell 'table))
+        (cell-attrs
+         (format "align=%s"
+                 (symbol-name
+                  (org-export-table-cell-alignment table-cell info))))
+        (cell-contents (if (or (not contents) (string= "" (org-trim contents)))
+                           "&nbsp;"
+                         contents)))
+    (if (and (org-export-table-has-header-p table info)
+             (= 1 (org-export-table-row-group table-row info)))
+        (if (zerop (cdr (org-export-table-cell-address table-cell info)))
+            (format "(:headnr %s :)%s\n" cell-attrs cell-contents)
+          (format "(:head %s :)%s\n" cell-attrs cell-contents))
+      (if (zerop (cdr (org-export-table-cell-address table-cell info)))
+          (format "(:cellnr %s :)%s\n" cell-attrs cell-contents)
+        (format "(:cell %s :)%s\n" cell-attrs cell-contents)))))
 
 ;;;###autoload
 (defun org-pmwiki-export-to-pmwiki (&optional async subtreep visible-only)
