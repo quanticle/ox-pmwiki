@@ -352,7 +352,7 @@ CONTENTS is nil. INFO is a plist holding contextual information."
 of the table. INFO is a plist serving as a communications channel."
   (let ((table-border "border=1")
         (table-cell-padding "cellpadding=5px"))
-    (format "(:table %s %s :)\n%s\n(:tableend:)"
+    (format "(:table %s %s :)\n%s(:tableend:)"
             table-border
             table-cell-padding
             contents)))
