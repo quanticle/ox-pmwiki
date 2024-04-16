@@ -92,7 +92,9 @@ ensure that links aren't broken."
                      (line-break . org-pmwiki-line-break)
                      (table . org-pmwiki-table)
                      (table-cell . org-pmwiki-table-cell)
-                     (table-row . org-pmwiki-table-row))
+                     (table-row . org-pmwiki-table-row)
+                     (subscript . org-pmwiki-subscript)
+                     (superscript . org-pmwiki-superscript))
   :options-alist '((:pmwiki-toplevel-hlevel nil nil org-pmwiki-toplevel-hlevel)
                    (:pmwiki-inline-image-rules nil nil org-pmwiki-inline-image-rules)))
 
@@ -307,11 +309,13 @@ descriptions are removed, because PMWiki does not support links that span
 multiple lines."
   (let ((type (org-element-property :type link))
         (raw-path (org-element-property :path link))
-        (fixed-desc (replace-regexp-in-string "\n" " " desc)))
+        (fixed-desc (if (and desc (not (string= "" (org-trim desc))))
+                        (replace-regexp-in-string "\n" " " desc)
+                      desc)))
     (cond
      ((member type '("http" "https" "ftp" "mailto"))
       (let ((encoded-path (url-encode-url (concat type ":" raw-path))))
-        (if desc
+        (if fixed-desc
             (format "[[%s | %s]]" encoded-path fixed-desc)
           encoded-path)))
      ((string= type "file")
@@ -319,8 +323,8 @@ multiple lines."
        ((string= (file-name-extension raw-path) "org")
         (let ((wiki-page-name (file-name-sans-extension
                                (file-name-nondirectory raw-path))))
-          (if desc
-              (format "[[%s | %s]]" wiki-page-name desc)
+          (if fixed-desc
+              (format "[[%s | %s]]" wiki-page-name fixed-desc)
             (format "[[%s]]" wiki-page-name))))
        ((member (file-name-extension raw-path) '("jpg" "png" "gif"))
         (let ((attachment-name (file-name-nondirectory raw-path)))
@@ -352,7 +356,7 @@ CONTENTS is nil. INFO is a plist holding contextual information."
 of the table. INFO is a plist serving as a communications channel."
   (let ((table-border "border=1")
         (table-cell-padding "cellpadding=5px"))
-    (format "(:table %s %s :)\n%s(:tableend:)"
+    (format "||%s %s\n%s"
             table-border
             table-cell-padding
             contents)))
@@ -360,28 +364,40 @@ of the table. INFO is a plist serving as a communications channel."
 (defun org-pmwiki-table-row (_table-row contents _info)
   "Transcode a TABLE-ROW element from org to pmwiki format. CONTENTS is the
 contents of the row."
-  contents)
+  (if (and contents (not (string= "" (org-trim contents)))) 
+      (format "%s\n" contents)))
 
 (defun org-pmwiki-table-cell (table-cell contents info)
   "Transcode a TABLE-CELL element from org to pmwiki format. CONTENTS is the
 contents of the cell. INFO is a PLIST serving as a communications channel."
-  (let ((table-row (org-element-parent table-cell))
-        (table (org-element-lineage table-cell 'table))
-        (cell-attrs
-         (format "align=%s"
-                 (symbol-name
-                  (org-export-table-cell-alignment table-cell info))))
-        (cell-contents (if (or (not contents) (string= "" (org-trim contents)))
-                           "&nbsp;"
-                         contents)))
+  (let* ((table-row (org-element-parent table-cell))
+         (table (org-element-lineage table-cell 'table))
+         (cell-alignment (org-export-table-cell-alignment table-cell info))
+         (cell-text (if (or (not contents) (string= "" (org-trim contents)))
+                        "&nbsp;"
+                      contents))
+         (cell-contents 
+          (cond ((eq 'left cell-alignment) (format "%s " cell-text))
+                ((eq 'center cell-alignment) (format " %s " cell-text))
+                ((eq 'right cell-alignment) (format " %s" cell-text)))))
     (if (and (org-export-table-has-header-p table info)
              (= 1 (org-export-table-row-group table-row info)))
         (if (zerop (cdr (org-export-table-cell-address table-cell info)))
-            (format "(:headnr %s :)%s\n" cell-attrs cell-contents)
-          (format "(:head %s :)%s\n" cell-attrs cell-contents))
+            (format "||!%s||" cell-contents)
+          (format "!%s||" cell-contents))
       (if (zerop (cdr (org-export-table-cell-address table-cell info)))
-          (format "(:cellnr %s :)%s\n" cell-attrs cell-contents)
-        (format "(:cell %s :)%s\n" cell-attrs cell-contents)))))
+          (format "||%s||" cell-contents)
+        (format "%s||" cell-contents)))))
+
+(defun org-pmwiki-superscript (_superscript contents _info)
+  "Transcode a SUPERSCRIPT object from org to pmwiki format. CONTENTS is the
+superscript text. INFO is a plist holding contextual information."
+  (format "^%s^" contents))
+
+(defun org-pmwiki-subscript (_subscript contents _info)
+  "Transcode a SUBSCRIPT object from org to pmwiki format. CONTENTS is the
+subscript text. INFO is a plist holding contextual information."
+  (format "_%s_" contents))
 
 ;;;###autoload
 (defun org-pmwiki-export-to-pmwiki (&optional async subtreep visible-only)
