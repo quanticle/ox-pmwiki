@@ -392,12 +392,12 @@ contents of the cell. INFO is a PLIST serving as a communications channel."
 (defun org-pmwiki-superscript (_superscript contents _info)
   "Transcode a SUPERSCRIPT object from org to pmwiki format. CONTENTS is the
 superscript text. INFO is a plist holding contextual information."
-  (format "^%s^" contents))
+  (format "\'^%s^\'" contents))
 
 (defun org-pmwiki-subscript (_subscript contents _info)
   "Transcode a SUBSCRIPT object from org to pmwiki format. CONTENTS is the
 subscript text. INFO is a plist holding contextual information."
-  (format "_%s_" contents))
+  (format "\'_%s_\'" contents))
 
 ;;;###autoload
 (defun org-pmwiki-export-to-pmwiki (&optional async subtreep visible-only)
