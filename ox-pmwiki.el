@@ -266,6 +266,22 @@ plist with the export options."
 generation"
   contents)
 
+(defun org-pmwiki--make-anchor (anchor-id)
+  (format "[[#%s]]" anchor-id))
+
+(defun org-pmwiki--reference (headline info)
+  "Return an appropriate reference for the headline. 
+If the headline has a CUSTOM_ID property, that will be used as the reference. 
+Otherwise, use ORG-EXPORT-GET-REFERENCE to create an ID for the headline."
+  (let ((custom-id (org-element-property :CUSTOM_ID headline)))
+    (if custom-id
+        ;; PMWiki requires anchors to start with a letter so if the reference 
+        ;; does not start with a letter, prefix it with "org"
+        (if (string-match-p "^[[:digit:]]" custom-id)
+            (format "org-%s" custom-id)
+          custom-id)
+      (org-export-get-reference headline info))))
+
 (defun org-pmwiki-headline (headline contents info)
   "Transcode a HEADLINE element into pmwiki format.
 CONTENTS is the headline contents. INFO is a plist used as a communications
@@ -283,16 +299,17 @@ channel."
            (priority (and (plist-get info :with-priority)
                           (let ((char (org-element-property :priority headline)))
                             (and char (format "[#%c] " char)))))
-           (heading (concat todo priority title)))
+           (heading (concat todo priority title))
+           (id (org-pmwiki--reference headline info)))
       (cond
        ((or (org-export-low-level-p headline info)
             (> level 6))
         (let ((bullet (if (not (org-export-numbered-headline-p headline info)) "*" "#")))
-          (concat bullet " " "\'\'\'" heading tags "\'\'\'" "\n"
+          (concat bullet " " "\'\'\'" heading " " tags "\'\'\'  " (org-pmwiki--make-anchor id) "\n"
                   (and contents (replace-regexp-in-string "^" "  " contents)))))
        (t
         (let ((level-mark (make-string level ?!)))
-          (concat "\n" level-mark " " heading tags "\n\n" contents)))))))
+          (concat "\n" level-mark " " heading tags " " (org-pmwiki--make-anchor id) "\n\n" contents)))))))
 
 (defun org-pmwiki-link (link desc info)
   "Transcode a LINK element into pmwiki format.
@@ -330,7 +347,13 @@ multiple lines."
         (let ((attachment-name (file-name-nondirectory raw-path)))
           (if desc
               (format "[[Attach:%s | %s]]" attachment-name desc)
-            (format "Attach:%s" attachment-name)))))))))
+            (format "Attach:%s" attachment-name))))))
+     ((member type '("custom-id" "fuzzy" "id"))
+      (let* ((destination (if (string= type "fuzzy") 
+                              (org-export-resolve-fuzzy-link link info)
+                            (org-export-resolve-id-link link info)))
+             (href (org-pmwiki--reference destination info)))
+        (format "[[#%s | %s]]" href fixed-desc))))))
 
 (defun org-pmwiki-quote-block (_quote-block contents _info)
   "Transcode a QUOTE-BLOCK element into pmwiki format.
